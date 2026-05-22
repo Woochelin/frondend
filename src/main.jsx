@@ -41,32 +41,6 @@ const TYPE_CONFIG = {
   }
 };
 
-const STATIC_RECENT_LOGS = [
-  { id: 1, type: 'review', dot: '#3DBBBD', actor: '익명의크루', action: '님이', target: '검프 코치', tail: '에게 리뷰를 남겼습니다.', extra: '★★★★★', time: '방금 전' },
-  { id: 2, type: 'tag', dot: '#f5a623', actor: '스프링러버', action: '님이', target: '로빈 리뷰어', tail: '의 태그를 추가했습니다.', extra: '#따뜻함', time: '2분 전', extraType: 'tag' },
-  { id: 3, type: 'oneonone', dot: '#9b59b6', actor: '프론트요정', action: '님이', target: '제이슨 코치', tail: '에게 원온원을 신청했습니다.', extra: null, time: '5분 전' },
-  { id: 4, type: 'review', dot: '#3DBBBD', actor: '테코충', action: '님이', target: '피케이 리뷰어', tail: '에게 리뷰를 남겼습니다.', extra: '★★★★☆', time: '12분 전' },
-  { id: 5, type: 'tag', dot: '#f5a623', actor: '자바칩', action: '님이', target: '구구 코치', tail: '의 태그를 추가했습니다.', extra: '#진로상담', time: '15분 전', extraType: 'tag' },
-  { id: 6, type: 'review', dot: '#3DBBBD', actor: '디자인패턴충', action: '님이', target: '네오 코치', tail: '에게 리뷰를 남겼습니다.', extra: '★★★★★', time: '21분 전' },
-  { id: 7, type: 'oneonone', dot: '#9b59b6', actor: '맥북오너', action: '님이', target: '워니 코치', tail: '에게 원온원을 신청했습니다.', extra: null, time: '30분 전' },
-  { id: 8, type: 'review', dot: '#3DBBBD', actor: '안드장인', action: '님이', target: '디노 코치', tail: '에게 리뷰를 남겼습니다.', extra: '★★★★☆', time: '45분 전' },
-  { id: 9, type: 'tag', dot: '#f5a623', actor: '타입스크립트', action: '님이', target: '리사 코치', tail: '의 태그를 추가했습니다.', extra: '#소프트스킬', time: '1시간 전', extraType: 'tag' },
-  { id: 10, type: 'coffeechat', dot: '#9b59b6', actor: '우테코가자', action: '님이', target: '포비 코치', tail: '에게 커피챗을 신청했습니다.', extra: null, time: '2시간 전' }
-];
-
-const STATIC_SEARCH_TERMS = [
-  { rank: 1, keyword: '검프 피드백', badge: 'NEW', type: 'new', count: '1,204' },
-  { rank: 2, keyword: '리사 꼼꼼함', badge: 'UP', type: 'up', count: '982' },
-  { rank: 3, keyword: '로빈 리뷰어', badge: 'DOWN', type: 'down', count: '856' },
-  { rank: 4, keyword: 'AOS 디노', badge: null, type: '', count: '720' },
-  { rank: 5, keyword: '피케이 프론트', badge: 'NEW', type: 'new', count: '650' },
-  { rank: 6, keyword: '원온원 꿀팁', badge: 'UP', type: 'up', count: '412' },
-  { rank: 7, keyword: '리액트 렌더링', badge: null, type: '', count: '380' }
-];
-
-const FALLBACK_COACH_TAGS = ['성장', '목표 설정', '격려 위주'];
-const FALLBACK_REVIEWER_TAGS = ['칭찬요정', '꼼꼼함', '따뜻한'];
-
 async function api(path, options = {}) {
   const response = await fetch(path, {
     headers: {
@@ -94,11 +68,12 @@ function normalizeListItem(item, type) {
     track: PART_TO_TRACK[item.part] ?? item.part ?? '',
     part: item.part,
     rating: Number(item.averageRating ?? item.rating ?? 0),
-    style: item.style ?? '따뜻함',
+    style: item.style ?? '',
     tags: (item.topTags ?? item.tags ?? []).map((tag) => tag.name ?? String(tag)),
     image: item.profileImageUrl ?? item.image ?? '',
     slackUrl: item.slackUrl ?? '',
-    botId: item.botId ?? ''
+    botId: item.botId ?? '',
+    botDescription: item.botDescription ?? ''
   };
 }
 
@@ -250,11 +225,11 @@ function Header({ currentView, navigate }) {
   );
 }
 
-function HomeView({ coaches, reviewers, navigate, openSearch }) {
+function HomeView({ coaches, reviewers, trendingSearchTerms, activityLogs, navigate, openSearch }) {
   const [logFilter, setLogFilter] = useState('전체');
   const [keyword, setKeyword] = useState('');
 
-  const filteredLogs = STATIC_RECENT_LOGS.filter((log) => {
+  const filteredLogs = activityLogs.filter((log) => {
     if (logFilter === '전체') return true;
     if (logFilter === '리뷰') return log.type === 'review';
     if (logFilter === '태그') return log.type === 'tag';
@@ -316,10 +291,10 @@ function HomeView({ coaches, reviewers, navigate, openSearch }) {
             <div className="flex items-center gap-2 px-4 py-3 bg-[#e8f8f8] border-b border-[rgba(0,0,0,0.09)] shrink-0">
               <span className="text-[15px] leading-none">🔥</span>
               <span className="text-[13px] font-bold text-[#1e6668] flex-1">실시간 인기 검색어</span>
-              <span className="text-[11px] text-[#2a8a8c] tabular-nums tracking-tighter">16:00 기준</span>
+              <span className="text-[11px] text-[#2a8a8c] tabular-nums tracking-tighter">{trendingSearchTerms[0]?.basedAt ?? ''}</span>
             </div>
             <ul className="py-1.5 overflow-y-auto custom-scrollbar flex-1">
-              {STATIC_SEARCH_TERMS.map((item) => (
+              {trendingSearchTerms.map((item) => (
                 <li key={item.rank} className="flex items-center gap-2.5 px-4 py-2.5 border-b border-[rgba(0,0,0,0.09)] hover:bg-[#e8f8f8] transition-colors cursor-default last:border-0">
                   <span className={`text-[13px] font-bold w-[18px] text-center shrink-0 tabular-nums ${item.rank === 1 ? 'text-[#f5a623] text-[15px]' : 'text-[#40A8A8]'}`}>{item.rank}</span>
                   <span className="text-[14px] font-medium text-[#1a1a1a] flex-1 truncate">{item.keyword}</span>
@@ -414,7 +389,7 @@ function PickSection({ title, icon, color, light, items, type, navigate }) {
               <h3 className="text-2xl font-baemin text-gray-900 mt-2">{item.name} {TYPE_CONFIG[type].label}</h3>
               <div className="flex justify-center mt-3 mb-5 bg-gray-50 py-2 rounded-2xl"><StarRating rating={item.rating} size={20} /></div>
               <div className="flex flex-wrap justify-center gap-2">
-                {(item.tags.length ? item.tags : type === 'coach' ? FALLBACK_COACH_TAGS : FALLBACK_REVIEWER_TAGS).slice(0, 2).map((tag) => (
+                {item.tags.slice(0, 2).map((tag) => (
                   <span key={tag} className="text-sm px-3 py-1.5 font-bold rounded-xl" style={{ backgroundColor: light, color }}>#{tag}</span>
                 ))}
               </div>
@@ -470,7 +445,7 @@ function ListView({ type, items, navigate, loadList }) {
               </div>
               {!isCoach && <p className="text-sm text-[#FF8A65] font-bold mb-4 bg-[#FFEBEE] w-fit px-3 py-1 rounded-xl">스타일: {item.style}</p>}
               <div className="mt-auto flex flex-wrap gap-2 pt-4 border-t border-gray-100">
-                {(item.tags.length ? item.tags : isCoach ? FALLBACK_COACH_TAGS : FALLBACK_REVIEWER_TAGS).map((tag) => (
+                {item.tags.map((tag) => (
                   <span key={tag} className="text-sm px-3 py-1.5 bg-gray-50 text-gray-600 font-medium rounded-xl">#{tag}</span>
                 ))}
               </div>
@@ -567,7 +542,7 @@ function DetailView({ selectedItem, selectedType, detail, navigate, refreshDetai
                   </div>
                 </div>
                 <div className="flex gap-2 flex-wrap mb-8">
-                  {(item.tags.length ? item.tags : isCoach ? FALLBACK_COACH_TAGS : FALLBACK_REVIEWER_TAGS).map((tag) => (
+                  {item.tags.map((tag) => (
                     <span key={tag} className="px-4 py-2 bg-gray-50 text-gray-700 font-bold rounded-xl text-sm border border-gray-100">#{tag}</span>
                   ))}
                 </div>
@@ -842,7 +817,7 @@ function SearchView({ results, keyword, openSearch, navigate }) {
                 <div className="bg-gray-50 px-2 py-1 rounded-lg"><StarRating rating={item.rating} size={16} /></div>
               </div>
               <div className="mt-auto flex flex-wrap gap-2 pt-4 border-t border-gray-100">
-                {(item.tags.length ? item.tags : item.type === 'coach' ? FALLBACK_COACH_TAGS : FALLBACK_REVIEWER_TAGS).map((tag) => (
+                {item.tags.map((tag) => (
                   <span key={tag} className="text-sm px-3 py-1.5 bg-gray-50 text-gray-600 font-medium rounded-xl">#{tag}</span>
                 ))}
               </div>
@@ -905,7 +880,7 @@ function ChatbotView({ coaches }) {
               </div>
               <div>
                 <p className={`font-baemin text-lg ${selectedBot === bot.botId ? 'text-[#40A8A8]' : 'text-gray-900'}`}>{bot.name} 봇</p>
-                <p className="text-sm text-gray-500 font-medium">따뜻한 위로와 명언</p>
+                <p className="text-sm text-gray-500 font-medium">{bot.botDescription}</p>
               </div>
             </div>
           ))}
@@ -967,6 +942,8 @@ function App() {
   const [tags, setTags] = useState([]);
   const [searchKeyword, setSearchKeyword] = useState('');
   const [searchResults, setSearchResults] = useState([]);
+  const [trendingSearchTerms, setTrendingSearchTerms] = useState([]);
+  const [activityLogs, setActivityLogs] = useState([]);
 
   async function loadList(type, part = '') {
     const query = part ? `?part=${encodeURIComponent(part)}` : '';
@@ -994,6 +971,12 @@ function App() {
       setSelectedItem(item);
       setSelectedType(type);
     }
+    if (view === 'home') {
+      await Promise.all([loadList('coach'), loadList('reviewer'), loadHomeSideData()]);
+    }
+    if (view === 'chat') {
+      await loadList('coach');
+    }
     if (view === 'detail' && item) {
       setDetail(null);
       await loadDetail(item, type);
@@ -1019,14 +1002,23 @@ function App() {
     }
   }
 
+  async function loadHomeSideData() {
+    const [trending, logs] = await Promise.all([
+      api('/api/v1/search/trending'),
+      api('/api/v1/activity-logs')
+    ]);
+    setTrendingSearchTerms(trending);
+    setActivityLogs(logs);
+  }
+
   useEffect(() => {
-    Promise.all([loadList('coach'), loadList('reviewer')]).catch((error) => {
+    Promise.all([loadList('coach'), loadList('reviewer'), loadHomeSideData()]).catch((error) => {
       console.error(error);
     });
   }, []);
 
   const content = useMemo(() => {
-    if (currentView === 'home') return <HomeView coaches={coaches} reviewers={reviewers} navigate={navigate} openSearch={openSearch} />;
+    if (currentView === 'home') return <HomeView coaches={coaches} reviewers={reviewers} trendingSearchTerms={trendingSearchTerms} activityLogs={activityLogs} navigate={navigate} openSearch={openSearch} />;
     if (currentView === 'coaches') return <ListView type="coach" items={coaches} navigate={navigate} loadList={loadList} />;
     if (currentView === 'reviewers') return <ListView type="reviewer" items={reviewers} navigate={navigate} loadList={loadList} />;
     if (currentView === 'detail') return <DetailView selectedItem={selectedItem} selectedType={selectedType} detail={detail} navigate={navigate} refreshDetail={refreshDetail} />;
@@ -1034,7 +1026,7 @@ function App() {
     if (currentView === 'search') return <SearchView results={searchResults} keyword={searchKeyword} openSearch={openSearch} navigate={navigate} />;
     if (currentView === 'chat') return <ChatbotView coaches={coaches} />;
     return null;
-  }, [currentView, coaches, reviewers, selectedItem, selectedType, detail, tags, searchKeyword, searchResults]);
+  }, [currentView, coaches, reviewers, selectedItem, selectedType, detail, tags, searchKeyword, searchResults, trendingSearchTerms, activityLogs]);
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
